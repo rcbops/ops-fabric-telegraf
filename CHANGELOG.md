@@ -463,6 +463,7 @@
 - [#3127](https://github.com/influxdata/telegraf/pull/3127): Allow using system plugin in Windows.
 - [#3112](https://github.com/influxdata/telegraf/pull/3112): Add tomcat input plugin.
 - [#3182](https://github.com/influxdata/telegraf/pull/3182): HTTP headers can be added to InfluxDB output.
+- [#2013](https://github.com/influxdata/telegraf/pull/2013): OpenStack Input Plugin
 
 ### Bugfixes
 
