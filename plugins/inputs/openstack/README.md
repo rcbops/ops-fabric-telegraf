@@ -54,35 +54,35 @@ A _total_ suffix denotes the sum total of all resources encountered.  The absenc
 the _total_ suffix denotes the metric is specific to an individual entity, see [Tags](#tags)
 below.
 
-* openstack\_identity\_total
+* openstack_identity_total
     * projects - Total number of projects [int]
-* openstack\_hypervisor(\_total)
+* openstack_hypervisor(_total)
     * memory - Memory available [int, bytes]
-    * memory\_used - Memory used [int, bytes]
-    * running\_vms - Running VMs [int]
+    * memory_used - Memory used [int, bytes]
+    * running_vms - Running VMs [int]
     * vcpus - VCPUs available [int]
-    * vcpus\_used - VCPUs used [int]
-* openstack\_server\_state(\_total)
+    * vcpus_used - VCPUs used [int]
+* openstack_server_state(_total)
     * _variable_ - Number of servers per state (e.g. running, paused, suspended etc.) [int]
-* openstack\_server\_stats(\_total)
+* openstack_server_stats(_total)
     * vcpus - VCPUs used [int]
     * ram - RAM used [int, bytes]
     * disk - Disk used [int, bytes]
-* openstack\_volume\_count(\_total)
+* openstack_volume_count(_total)
     * _variable_ - Number of volumes per type (name assigned during volume type creation, defaults to "default" if not present) [int]
-* openstack\_volume\_size(\_total)
+* openstack_volume_size(_total)
     * _variable_ - Size of volumes per type (name assigned during volume type creation, defaults to "default" if not present) [int, bytes]
-* openstack\_storage\_pool
-    * total\_capacity - Total size of storage pool [float64, bytes]
-    * free\_capacity - Remaining size of storage pool [float64, bytes]
+* openstack_storage_pool
+    * total_capacity - Total size of storage pool [float64, bytes]
+    * free_capacity - Remaining size of storage pool [float64, bytes]
 
 ### Tags
 
-* openstack\_hypervisor
-    * hypervisor - The specifc hypervisor name for which the measurement is taken
-* openstack\_server\_state, openstack\_server\_stats, openstack\_volume\_count, openstack\_volume\_size
+* openstack_hypervisor
+    * hypervisor - The specific hypervisor name for which the measurement is taken
+* openstack_server_state, openstack_server_stats, openstack_volume_count, openstack_volume_size
     * project - The specific project that a resource belongs to
-* openstack\_storage\_pool
+* openstack_storage_pool
     * name - The specific pool being refered to
 
 ### Example Output

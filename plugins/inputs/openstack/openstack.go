@@ -71,24 +71,6 @@ func (in IntegerFieldMap) encode() FieldMap {
 	return out
 }
 
-// Convert a float from MB into B
-func megabytesToBytes(in int) int {
-	return in * 1024 * 1024
-}
-
-func megabytesToBytesf(in float64) float64 {
-	return in * 1024.0 * 1024.0
-}
-
-// Convert a float from GB into B
-func gigabytesToBytes(in int) int {
-	return in * 1024 * 1024 * 1024
-}
-
-func gigabytesToBytesf(in float64) float64 {
-	return in * 1024.0 * 1024.0 * 1024.0
-}
-
 func (o *OpenStack) Description() string {
 	return "Collects performance metrics from OpenStack services"
 }
@@ -114,16 +96,17 @@ var sampleConfig = `
   ## [REQUIRED] The user's password to authenticate with
   password = "Passw0rd"
 `
+// TODO switch godep to gophercloud recent commit / release
+// TODO find another sample config to model after, remove required/optional
 
 func (o *OpenStack) SampleConfig() string {
 	return sampleConfig
 }
 
 func init() {
-	o := OpenStack{
-		Domain: "Default",
-	}
-	inputs.Add("openstack", func() telegraf.Input { return &o })
+	inputs.Add("openstack", func() telegraf.Input {
+		return &OpenStack{}
+	})
 }
 
 func (o *OpenStack) Gather(acc telegraf.Accumulator) error {
@@ -171,11 +154,15 @@ func (o *OpenStack) Gather(acc telegraf.Accumulator) error {
 	}
 
 	// Calculate statistics
+	// TODO perhaps make what is gathered configurable?
+	// so if a service is missing, it doesn't attempt gather?
+	// does it matter?
 	gatherIdentityStatistics(acc, projectMap)
 	gatherHypervisorStatistics(acc, hypervisorList)
 	gatherServerStatistics(acc, projectMap, flavorMap, serverList)
 	gatherVolumeStatistics(acc, projectMap, volumeList)
 	gatherStoragePoolStatistics(acc, storagePoolList)
+	// TODO if Gophercloud supports it, add some ironic stats
 
 	return nil
 }
@@ -206,7 +193,7 @@ func getProjectMap(provider *gophercloud.ProviderClient) (ProjectMap, error) {
 }
 
 func getHypervisorList(provider *gophercloud.ProviderClient) (HypervisorList, error) {
-
+	// TODO store 1 client per service and pass into these functions
 	compute, err := openstack.NewComputeV2(provider, gophercloud.EndpointOpts{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to create V2 compute client: %v", err)
@@ -310,7 +297,7 @@ func getStoragePools(provider *gophercloud.ProviderClient) (StoragePoolList, err
 }
 
 func gatherIdentityStatistics(acc telegraf.Accumulator, projectMap ProjectMap) {
-
+	// TODO check for nil in Gather instead before calling function
 	// Ignore if any required data is missing
 	if projectMap == nil {
 		return
@@ -334,10 +321,13 @@ func gatherHypervisorStatistics(acc telegraf.Accumulator, hypervisorList Hypervi
 	// Set some defaults in case we have no hypervisors yet
 	totals := IntegerFieldMap{}
 
+	// TODO: potentially add:
+	// 0 or 1 for hypervisor enabled
+	// disk stats? global and per hypervisor?
 	for _, hypervisor := range hypervisorList {
 		// Accumulate overall statistics
-		totals["memory"] += megabytesToBytes(hypervisor.MemoryMB)
-		totals["memory_used"] += megabytesToBytes(hypervisor.MemoryMBUsed)
+		totals["memory_mb"] += hypervisor.MemoryMB
+		totals["memory_mb_used"] += hypervisor.MemoryMBUsed
 		totals["running_vms"] += hypervisor.RunningVMs
 		totals["vcpus"] += hypervisor.VCPUs
 		totals["vcpus_used"] += hypervisor.VCPUsUsed
@@ -347,8 +337,8 @@ func gatherHypervisorStatistics(acc telegraf.Accumulator, hypervisorList Hypervi
 			"hypervisor": hypervisor.HypervisorHostname,
 		}
 		fields := FieldMap{
-			"memory":      megabytesToBytes(hypervisor.MemoryMB),
-			"memory_used": megabytesToBytes(hypervisor.MemoryMBUsed),
+			"memory_mb":      hypervisor.MemoryMB,
+			"memory_mb_used": hypervisor.MemoryMBUsed,
 			"running_vms": hypervisor.RunningVMs,
 			"vcpus":       hypervisor.VCPUs,
 			"vcpus_used":  hypervisor.VCPUsUsed,
@@ -356,6 +346,8 @@ func gatherHypervisorStatistics(acc telegraf.Accumulator, hypervisorList Hypervi
 		acc.AddFields("openstack_hypervisor", fields, tags)
 	}
 
+	// TODO remove this and remove from readme? also consider removing other
+	// "overall statistics"?
 	// Dump overall hypervisor statistics
 	if len(totals) != 0 {
 		acc.AddFields("openstack_hypervisor_total", totals.encode(), TagMap{})
@@ -384,8 +376,10 @@ func gatherServerStatistics(acc telegraf.Accumulator, projectMap ProjectMap, fla
 		// Extract the flavor details
 		flavor := flavorMap[server.Flavor["id"].(string)]
 		vcpus := flavor.VCPUs
-		ram := megabytesToBytes(flavor.RAM)
-		disk := gigabytesToBytes(flavor.Disk)
+		// megabytes
+		ram := flavor.RAM
+		// gigabytes
+		disk := flavor.Disk
 
 		// Record the number of VMs in various states
 		overallStateFields[status] += 1
@@ -446,8 +440,7 @@ func gatherVolumeStatistics(acc telegraf.Accumulator, projectMap ProjectMap, vol
 			volumeType = volume.VolumeType
 		}
 
-		// Normalize values to unit measurements
-		size := gigabytesToBytes(volume.Size)
+		size := volume.Size
 
 		// Increment global statistics
 		overallCount[volumeType] += 1
@@ -492,8 +485,8 @@ func gatherStoragePoolStatistics(acc telegraf.Accumulator, storagePoolList Stora
 			"name": storagePool.Capabilities.VolumeBackendName,
 		}
 		fields := FieldMap{
-			"total_capacity": gigabytesToBytesf(storagePool.Capabilities.TotalCapacityGB),
-			"free_capacity":  gigabytesToBytesf(storagePool.Capabilities.FreeCapacityGB),
+			"total_capacity_gb": storagePool.Capabilities.TotalCapacityGB,
+			"free_capacity_gb":  storagePool.Capabilities.FreeCapacityGB,
 		}
 		acc.AddFields("openstack_storage_pool", fields, tags)
 	}
