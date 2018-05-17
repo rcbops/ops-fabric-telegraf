@@ -1,6 +1,7 @@
 package openstack
 
 import (
+	"crypto/tls"
 	"fmt"
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack"
@@ -136,7 +137,7 @@ func (o *OpenStack) Gather(acc telegraf.Accumulator) error {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
-	provider.HTTPClient = &http.Client{Transport: tr}
+	provider.HTTPClient = http.Client{Transport: tr}
 
 	// Gather resources
 	// Don't bomb out here, some data is better than none, the 'gather'
