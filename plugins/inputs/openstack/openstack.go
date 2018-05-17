@@ -14,6 +14,7 @@ import (
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
 	"log"
+	"net/http"
 	"strings"
 )
 
@@ -124,6 +125,18 @@ func (o *OpenStack) Gather(acc telegraf.Accumulator) error {
 	if err != nil {
 		return fmt.Errorf("Unable to authenticate OpenStack user: %v", err)
 	}
+
+	// Don't validate x509 cert for testing
+	// TODO We shouldn't have to do this ... Seems like certs in dev
+	// environment may be misconfigured, or we're not passing the right config into the
+	// telegraf image.
+	// TODO Why are Identity calls succeeding but not others unless this is
+	// done?
+	// TODO Why do version checks succeed?
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	provider.HTTPClient = &http.Client{Transport: tr}
 
 	// Gather resources
 	// Don't bomb out here, some data is better than none, the 'gather'
