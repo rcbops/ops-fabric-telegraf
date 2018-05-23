@@ -85,6 +85,11 @@ var sampleConfig = `
   ## service catalog from
   identity_endpoint = "https://my.openstack.cloud:5000"
 
+  ## Verify any HTTPS connections to Identity or other OpenStack APIs
+  ## WARNING: Disable this at your own risk. An attacker may be able to
+  ## intercept any connections to an unsecured API.
+  verify_https = true
+
   ## [OPTIONAL] The domain to authenticate against when using a V3
   ## identity endpoint.  Defaults to 'default'
   domain = "default"
@@ -99,7 +104,8 @@ var sampleConfig = `
   password = "Passw0rd"
 `
 // TODO switch godep to gophercloud recent commit / release
-// TODO find another sample config to model after, remove required/optional
+// TODO before upstreaming, find another sample config to model after, remove
+// required/optional
 
 func (o *OpenStack) SampleConfig() string {
 	return sampleConfig
@@ -127,17 +133,18 @@ func (o *OpenStack) Gather(acc telegraf.Accumulator) error {
 		return fmt.Errorf("Unable to authenticate OpenStack user: %v", err)
 	}
 
-	// Don't validate x509 cert for testing
 	// TODO We shouldn't have to do this ... Seems like certs in dev
 	// environment may be misconfigured, or we're not passing the right config into the
 	// telegraf image.
 	// TODO Why are Identity calls succeeding but not others unless this is
 	// done?
 	// TODO Why do version checks succeed?
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	if !o.VerifyHttps {
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		provider.HTTPClient = http.Client{Transport: tr}
 	}
-	provider.HTTPClient = http.Client{Transport: tr}
 
 	// Gather resources
 	// Don't bomb out here, some data is better than none, the 'gather'
@@ -176,7 +183,7 @@ func (o *OpenStack) Gather(acc telegraf.Accumulator) error {
 	gatherServerStatistics(acc, projectMap, flavorMap, serverList)
 	gatherVolumeStatistics(acc, projectMap, volumeList)
 	gatherStoragePoolStatistics(acc, storagePoolList)
-	// TODO if Gophercloud supports it, add some ironic stats
+	// TODO add ironic stats after it's supported by Gophercloud
 
 	return nil
 }
@@ -207,7 +214,8 @@ func getProjectMap(provider *gophercloud.ProviderClient) (ProjectMap, error) {
 }
 
 func getHypervisorList(provider *gophercloud.ProviderClient) (HypervisorList, error) {
-	// TODO store 1 client per service and pass into these functions
+	// TODO before upstreaming, store 1 client per service and pass into these
+	// functions
 	compute, err := openstack.NewComputeV2(provider, gophercloud.EndpointOpts{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to create V2 compute client: %v", err)
@@ -311,8 +319,9 @@ func getStoragePools(provider *gophercloud.ProviderClient) (StoragePoolList, err
 }
 
 func gatherIdentityStatistics(acc telegraf.Accumulator, projectMap ProjectMap) {
-	// TODO check for nil in Gather instead before calling function
-	// Ignore if any required data is missing
+	// TODO before upstreaming, check for nil in Gather instead before calling
+	// function Ignore if any required data is missing. Same for all other
+	// gather() functions
 	if projectMap == nil {
 		return
 	}
