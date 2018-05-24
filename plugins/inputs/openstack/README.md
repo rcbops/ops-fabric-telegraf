@@ -46,31 +46,30 @@ At present this plugin requires the following APIs:
 #
 #   ## [REQUIRED] The user's password to authenticate with
 #   password = "Passw0rd"
+#
+#  ## Whether to verify HTTPS connections to OpenStack APIs when gathering data
+#  verify_https = true
 ```
 
 ### Measurements & Fields
 
-A _total_ suffix denotes the sum total of all resources encountered.  The absence of
-the _total_ suffix denotes the metric is specific to an individual entity, see [Tags](#tags)
-below.
-
 * openstack_identity_total
     * projects - Total number of projects [int]
-* openstack_hypervisor(_total)
-    * memory - Memory available [int, bytes]
-    * memory_used - Memory used [int, bytes]
+* openstack_hypervisor
+    * memory_mb - MB memory available [int]
+    * memory_used - MB memory used [int]
     * running_vms - Running VMs [int]
     * vcpus - VCPUs available [int]
     * vcpus_used - VCPUs used [int]
-* openstack_server_state(_total)
+* openstack_server_state
     * _variable_ - Number of servers per state (e.g. running, paused, suspended etc.) [int]
-* openstack_server_stats(_total)
+* openstack_server_stats
     * vcpus - VCPUs used [int]
     * ram - RAM used [int, bytes]
     * disk - Disk used [int, bytes]
-* openstack_volume_count(_total)
+* openstack_volume_count
     * _variable_ - Number of volumes per type (name assigned during volume type creation, defaults to "default" if not present) [int]
-* openstack_volume_size(_total)
+* openstack_volume_size
     * _variable_ - Size of volumes per type (name assigned during volume type creation, defaults to "default" if not present) [int, bytes]
 * openstack_storage_pool
     * total_capacity - Total size of storage pool [float64, bytes]
@@ -78,15 +77,16 @@ below.
 
 ### Tags
 
-* openstack_hypervisor
+* series: openstack_hypervisor
     * hypervisor - The specific hypervisor name for which the measurement is taken
-* openstack_server_state, openstack_server_stats, openstack_volume_count, openstack_volume_size
+* series: openstack_server_state, openstack_server_stats, openstack_volume_count, openstack_volume_size
     * project - The specific project that a resource belongs to
-* openstack_storage_pool
-    * name - The specific pool being refered to
+* series: openstack_storage_pool
+    * name - The specific pool being referred to
 
 ### Example Output
 
+// TODO update example to match reality before upstreaming this
 ```
 simon@influxdb:~$ ./go/bin/telegraf -test -config telegraf.conf -input-filter openstack
 * Plugin: inputs.openstack, Collection 1

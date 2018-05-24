@@ -62,6 +62,7 @@ type OpenStack struct {
 	Project          string
 	Username         string
 	Password         string
+	VerifyHttps      bool
 }
 
 // Convert a numeric field map into a native telegraf field map
@@ -102,6 +103,9 @@ var sampleConfig = `
 
   ## [REQUIRED] The user's password to authenticate with
   password = "Passw0rd"
+
+  ## Whether to verify HTTPS connections to OpenStack APIs when gathering data
+  verify_https = true
 `
 // TODO switch godep to gophercloud recent commit / release
 // TODO before upstreaming, find another sample config to model after, remove
@@ -134,8 +138,8 @@ func (o *OpenStack) Gather(acc telegraf.Accumulator) error {
 	}
 
 	// TODO We shouldn't have to do this ... Seems like certs in dev
-	// environment may be misconfigured, or we're not passing the right config into the
-	// telegraf image.
+	// environment may be misconfigured, or we're not passing the right config
+	// into the telegraf image.
 	// TODO Why are Identity calls succeeding but not others unless this is
 	// done?
 	// TODO Why do version checks succeed?
@@ -175,9 +179,6 @@ func (o *OpenStack) Gather(acc telegraf.Accumulator) error {
 	}
 
 	// Calculate statistics
-	// TODO perhaps make what is gathered configurable?
-	// so if a service is missing, it doesn't attempt gather?
-	// does it matter?
 	gatherIdentityStatistics(acc, projectMap)
 	gatherHypervisorStatistics(acc, hypervisorList)
 	gatherServerStatistics(acc, projectMap, flavorMap, serverList)
@@ -348,14 +349,9 @@ func gatherHypervisorStatistics(acc telegraf.Accumulator, hypervisorList Hypervi
 	// 0 or 1 for hypervisor enabled
 	// disk stats? global and per hypervisor?
 	for _, hypervisor := range hypervisorList {
-		// Accumulate overall statistics
-		totals["memory_mb"] += hypervisor.MemoryMB
-		totals["memory_mb_used"] += hypervisor.MemoryMBUsed
-		totals["running_vms"] += hypervisor.RunningVMs
-		totals["vcpus"] += hypervisor.VCPUs
-		totals["vcpus_used"] += hypervisor.VCPUsUsed
-
 		// Dump per hypervisor statistics
+		// TODO We may want to be able to hash these names for external
+		// customers. Add an option for that.
 		tags := TagMap{
 			"hypervisor": hypervisor.HypervisorHostname,
 		}
@@ -368,13 +364,6 @@ func gatherHypervisorStatistics(acc telegraf.Accumulator, hypervisorList Hypervi
 		}
 		acc.AddFields("openstack_hypervisor", fields, tags)
 	}
-
-	// TODO remove this and remove from readme? also consider removing other
-	// "overall statistics"?
-	// Dump overall hypervisor statistics
-	if len(totals) != 0 {
-		acc.AddFields("openstack_hypervisor_total", totals.encode(), TagMap{})
-	}
 }
 
 func gatherServerStatistics(acc telegraf.Accumulator, projectMap ProjectMap, flavorMap FlavorMap, serverList ServerList) {
@@ -384,12 +373,9 @@ func gatherServerStatistics(acc telegraf.Accumulator, projectMap ProjectMap, fla
 		return
 	}
 
-	// Records VM states and frequency
-	overallStateFields := IntegerFieldMap{}
 	projectStateFields := KeyedIntegerFieldMap{}
 
 	// Records VM utilisations
-	overallFields := IntegerFieldMap{}
 	projectFields := KeyedIntegerFieldMap{}
 
 	for _, server := range serverList {
@@ -404,13 +390,6 @@ func gatherServerStatistics(acc telegraf.Accumulator, projectMap ProjectMap, fla
 		// gigabytes
 		disk := flavor.Disk
 
-		// Record the number of VMs in various states
-		overallStateFields[status] += 1
-
-		// Record the resources being used by all VMs
-		overallFields["vcpus"] += vcpus
-		overallFields["ram"] += ram
-		overallFields["disk"] += disk
 
 		project := projectMap[server.TenantID].Name
 		if _, ok := projectStateFields[project]; !ok {
@@ -425,12 +404,6 @@ func gatherServerStatistics(acc telegraf.Accumulator, projectMap ProjectMap, fla
 		projectFields[project]["vcpus"] += vcpus
 		projectFields[project]["ram"] += ram
 		projectFields[project]["disk"] += disk
-	}
-
-	// Dump overall server states
-	if len(overallStateFields) != 0 {
-		acc.AddFields("openstack_server_state_total", overallStateFields.encode(), TagMap{})
-		acc.AddFields("openstack_server_stats_total", overallFields.encode(), TagMap{})
 	}
 
 	// Dump per-project server states
@@ -450,9 +423,6 @@ func gatherVolumeStatistics(acc telegraf.Accumulator, projectMap ProjectMap, vol
 		return
 	}
 
-	overallCount := IntegerFieldMap{}
-	overallSizes := IntegerFieldMap{}
-
 	projectCount := KeyedIntegerFieldMap{}
 	projectSizes := KeyedIntegerFieldMap{}
 
@@ -465,10 +435,6 @@ func gatherVolumeStatistics(acc telegraf.Accumulator, projectMap ProjectMap, vol
 
 		size := volume.Size
 
-		// Increment global statistics
-		overallCount[volumeType] += 1
-		overallSizes[volumeType] += size
-
 		project := projectMap[volume.TenantID].Name
 		if _, ok := projectCount[project]; !ok {
 			projectCount[project] = IntegerFieldMap{}
@@ -478,12 +444,6 @@ func gatherVolumeStatistics(acc telegraf.Accumulator, projectMap ProjectMap, vol
 		// Increment per-project statistics
 		projectCount[project][volumeType] += 1
 		projectSizes[project][volumeType] += size
-	}
-
-	// Dump overall statistics
-	if len(overallCount) != 0 {
-		acc.AddFields("openstack_volume_count_total", overallCount.encode(), TagMap{})
-		acc.AddFields("openstack_volume_size_total", overallSizes.encode(), TagMap{})
 	}
 
 	// Dump per-project statistics
