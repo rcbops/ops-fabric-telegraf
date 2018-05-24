@@ -342,9 +342,6 @@ func gatherHypervisorStatistics(acc telegraf.Accumulator, hypervisorList Hypervi
 		return
 	}
 
-	// Set some defaults in case we have no hypervisors yet
-	totals := IntegerFieldMap{}
-
 	// TODO: potentially add:
 	// 0 or 1 for hypervisor enabled
 	// disk stats? global and per hypervisor?
