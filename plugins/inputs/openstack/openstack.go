@@ -342,10 +342,20 @@ func gatherHypervisorStatistics(acc telegraf.Accumulator, hypervisorList Hypervi
 		return
 	}
 
+	// calculate totals across hypervisors
+	totals := IntegerFieldMap{}
+
 	// TODO: potentially add:
 	// 0 or 1 for hypervisor enabled
 	// disk stats? global and per hypervisor?
 	for _, hypervisor := range hypervisorList {
+		// increment totals
+		totals["memory_mb"] += hypervisor.MemoryMB
+		totals["memory_mb_used"] += hypervisor.MemoryMBUsed
+		totals["running_vms"] += hypervisor.RunningVMs
+		totals["vcpus"] += hypervisor.VCPUs
+		totals["vcpus_used"] += hypervisor.VCPUsUsed
+
 		// Dump per hypervisor statistics
 		// TODO We may want to be able to hash these names for external
 		// customers. Add an option for that.
@@ -361,6 +371,10 @@ func gatherHypervisorStatistics(acc telegraf.Accumulator, hypervisorList Hypervi
 		}
 		acc.AddFields("openstack_hypervisor", fields, tags)
 	}
+
+	if len(totals) != 0 {
+		acc.AddFields("openstack_hypervisor_total", totals.encode(), TagMap{})
+	}
 }
 
 func gatherServerStatistics(acc telegraf.Accumulator, projectMap ProjectMap, flavorMap FlavorMap, serverList ServerList) {
@@ -370,9 +384,12 @@ func gatherServerStatistics(acc telegraf.Accumulator, projectMap ProjectMap, fla
 		return
 	}
 
+	// Records VM states and frequency
+	overallStateFields := IntegerFieldMap{}
 	projectStateFields := KeyedIntegerFieldMap{}
 
 	// Records VM utilisations
+	overallFields := IntegerFieldMap{}
 	projectFields := KeyedIntegerFieldMap{}
 
 	for _, server := range serverList {
@@ -388,6 +405,14 @@ func gatherServerStatistics(acc telegraf.Accumulator, projectMap ProjectMap, fla
 		disk := flavor.Disk
 
 
+		// Record the number of VMs in various states
+		overallStateFields[status] += 1
+
+		// Record the resources being used by all VMs
+		overallFields["vcpus"] += vcpus
+		overallFields["ram"] += ram
+		overallFields["disk"] += disk
+
 		project := projectMap[server.TenantID].Name
 		if _, ok := projectStateFields[project]; !ok {
 			projectStateFields[project] = IntegerFieldMap{}
@@ -401,6 +426,12 @@ func gatherServerStatistics(acc telegraf.Accumulator, projectMap ProjectMap, fla
 		projectFields[project]["vcpus"] += vcpus
 		projectFields[project]["ram"] += ram
 		projectFields[project]["disk"] += disk
+	}
+
+	// Dump overall server states
+	if len(overallStateFields) != 0 {
+		acc.AddFields("openstack_server_state_total", overallStateFields.encode(), TagMap{})
+		acc.AddFields("openstack_server_stats_total", overallFields.encode(), TagMap{})
 	}
 
 	// Dump per-project server states
