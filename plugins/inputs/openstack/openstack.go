@@ -46,7 +46,7 @@ type FlavorMap map[string]flavors.Flavor
 // Typedef for an OpenStack volume
 type Volume struct {
 	volumes.Volume
-	volumetenants.VolumeExt
+	volumetenants.VolumeTenantExt
 }
 
 // Typedef for OpenStack volumes
